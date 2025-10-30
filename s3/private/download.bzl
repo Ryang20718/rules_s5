@@ -64,7 +64,6 @@ def cloud_archive_download(
         repo_ctx,
         file_path,
         expected_sha256,
-        provider,
         patches,
         patch_args,
         bucket = "",
@@ -78,27 +77,19 @@ def cloud_archive_download(
     BUILD file inside. """
     filename = repo_ctx.path(file_path).basename
 
-
-    s3_tool_label = repo_ctx.attr._s3_parallel
+    s3_tool_label = repo_ctx.attr._tool
     tool_path = repo_ctx.path(s3_tool_label)
 
-    bucket_arg = ["--bucket", bucket]
-    file_arg = ["--key", file_path]
-    dst_arg = ["--dst_path", filename]
+    s3_url = "s3://{}/{}".format(bucket, file_path)
     file_version_arg = ["--version-id", file_version] if file_version else []
     src_url = filename
-    cmd = [tool_path] + bucket_arg + file_arg + file_version_arg + dst_arg
-
-
-    if tool_path == None:
-        fail("Could not find command line utility for {}".format(provider.capitalize()))
+    cmd = [tool_path, "cp"] + file_version_arg + [s3_url, src_url]
 
     # Download.
     repo_ctx.report_progress("Downloading {}.".format(src_url))
-    print(cmd)
     result = repo_ctx.execute(cmd, timeout = 1800)
     if result.return_code != 0:
-        fail("Failed to download {} from {}: {}".format(src_url, provider.capitalize(), result.stderr))
+        fail("Failed to download {} err: {}".format(src_url, result.stderr))
 
     # Verify.
     filename = repo_ctx.path(src_url).basename
@@ -145,7 +136,6 @@ def _cloud_archive_impl(ctx):
         ctx,
         ctx.attr.file_path,
         ctx.attr.sha256,
-        provider = ctx.attr._provider,
         patches = ctx.attr.patches,
         patch_args = ctx.attr.patch_args,
         patch_cmds = ctx.attr.patch_cmds,
@@ -160,10 +150,9 @@ def _cloud_archive_impl(ctx):
 s3_archive = repository_rule(
     implementation = _cloud_archive_impl,
     attrs = {
-        "_s3_parallel": attr.label(
-            default = "//s3:s3_download",
-            executable = True,
-            cfg = "exec",
+        "_tool": attr.label(
+            default = Label("//s3:s5cmd.sh"),
+            allow_single_file = True,
         ),
         "bucket": attr.string(mandatory = True, doc = "Bucket name"),
         "file_path": attr.string(
