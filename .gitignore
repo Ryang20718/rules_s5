@@ -1,0 +1,9 @@
+bazel-bin/
+bazel-out/
+bazel-testlogs/
+bazel-*
+
+venv/
+.venv/
+
+__pycache__
