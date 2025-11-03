@@ -26,17 +26,27 @@ mkdir -p "$CACHE_DIR"
 # Output binary path
 S5CMD_BIN="$CACHE_DIR/s5cmd"
 
-if [[ ! -x "$S5CMD_BIN" ]]; then
-    URL="https://github.com/peak/s5cmd/releases/download/v${VERSION}/s5cmd_${VERSION}_${OS_NAME}-${ARCH_NAME}.tar.gz"
-    echo "Downloading s5cmd from: $URL"
-    
-    TMP_TAR="$(mktemp)"
-    curl -L "$URL" -o "$TMP_TAR"
-    
-    tar -xzf "$TMP_TAR" -C "$CACHE_DIR"
-    rm "$TMP_TAR"
-    
-    chmod +x "$S5CMD_BIN"
-fi
+# lock file to ensure thread safety
+LOCKFILE="${CACHE_DIR}/.s5cmd.lock"
+(
+    flock -x 200  # exclusive lock
+    if [[ ! -x "$S5CMD_BIN" ]]; then
+        URL="https://github.com/peak/s5cmd/releases/download/v${VERSION}/s5cmd_${VERSION}_${OS_NAME}-${ARCH_NAME}.tar.gz"
+        echo "Downloading s5cmd from: $URL"
+
+        TMP_TAR="$(mktemp)"
+        TMP_DIR="$(mktemp -d)"
+
+        curl -sSL "$URL" -o "$TMP_TAR"
+        tar -xzf "$TMP_TAR" -C "$TMP_DIR"
+        rm "$TMP_TAR"
+
+        # Move atomically to cache
+        mv -f "$TMP_DIR/s5cmd" "$S5CMD_BIN"
+        rm -rf "$TMP_DIR"
+
+        chmod +x "$S5CMD_BIN"
+    fi
+) 200>"$LOCKFILE"
 
 "$S5CMD_BIN" "$@"
