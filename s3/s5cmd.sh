@@ -29,7 +29,6 @@ S5CMD_BIN="$CACHE_DIR/s5cmd"
 if [[ ! -x "$S5CMD_BIN" ]]; then
     URL="https://github.com/peak/s5cmd/releases/download/v${VERSION}/s5cmd_${VERSION}_${OS_NAME}-${ARCH_NAME}.tar.gz"
     echo "Downloading s5cmd from: $URL"
-    exit 1
     
     TMP_TAR="$(mktemp)"
     curl -L "$URL" -o "$TMP_TAR"
