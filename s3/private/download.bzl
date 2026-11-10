@@ -107,7 +107,10 @@ def cloud_archive_download(
     # apply patch_cmds one by one after all patches have been applied
     bash_path = repo_ctx.os.environ.get("BAZEL_SH", "bash")
     for cmd in patch_cmds:
-        repo_ctx.execute([bash_path, "-c", cmd])
+        result = repo_ctx.execute([bash_path, "-c", cmd])
+        if result.return_code != 0:
+            fail("Error applying patch command %s:\n%s%s" %
+                 (cmd, result.stdout, result.stderr))
 
 def _cloud_archive_impl(ctx):
     cloud_archive_download(
